@@ -1,77 +1,73 @@
-import { createClient } from "@supabase/supabase-js";
+const { createClient } = require("@supabase/supabase-js");
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
+  // CORS (เผื่อเรียกจากหน้าเว็บ)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
-    }
-
-    // --- Vercel: บางครั้ง req.body ยังไม่เป็น object ---
-    const body =
-      typeof req.body === "string"
-        ? JSON.parse(req.body || "{}")
-        : (req.body || {});
-
+    // บางที body อาจเป็น string
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
     const { member_code, selected } = body;
 
     if (!member_code || !Array.isArray(selected)) {
       return res.status(400).json({ error: "Missing member_code or selected[]" });
     }
 
-    // --- Env check (กันหลง) ---
     const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;
+    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!SUPABASE_URL) return res.status(500).json({ error: "SUPABASE_URL missing" });
-    if (!SERVICE_ROLE) return res.status(500).json({ error: "SUPABASE_SERVICE_ROLE missing" });
+    if (!SUPABASE_URL) return res.status(500).json({ error: "Missing env SUPABASE_URL" });
+    if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: "Missing env SUPABASE_SERVICE_ROLE_KEY" });
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
 
-    // --- CSV content ---
+    // ---- Build CSV ----
     const header = ["member_code", "seq", "item_id"];
-    const rows = selected.map((x, i) => [
-      String(member_code),
-      String(x?.seq ?? (i + 1)),
-      String(x?.item_id ?? "")
-    ]);
+    const rows = selected.map((x) => [member_code, x.seq, x.item_id]);
 
     const csv = [header, ...rows]
-      .map((r) => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
       .join("\n");
 
-    // --- IMPORTANT: ส่งเป็น Buffer ---
-    const bytes = Buffer.from(csv, "utf8");
-
-    // --- path in bucket ---
+    const bucket = "csv"; // ต้องมี bucket นี้ใน Storage
     const filePath = `recgo/${member_code}.csv`;
 
+    // ✅ อัปโหลดเป็น Buffer (ชัวร์สุดบน Node)
+    const fileBody = Buffer.from(csv, "utf8");
+
     const { error: upErr } = await supabase.storage
-      .from("csv") // <-- bucket name ต้องเป็น "csv"
-      .upload(filePath, bytes, {
+      .from(bucket)
+      .upload(filePath, fileBody, {
         contentType: "text/csv; charset=utf-8",
-        upsert: true
+        upsert: true,
       });
 
-    if (upErr) {
-      return res.status(500).json({ error: upErr.message });
-    }
+    if (upErr) return res.status(500).json({ error: upErr.message });
 
-    // Signed URL 1 ชั่วโมง
+    // ถ้า bucket เป็น private → สร้าง signed url
     const { data, error: signErr } = await supabase.storage
-      .from("csv")
+      .from(bucket)
       .createSignedUrl(filePath, 60 * 60);
 
     if (signErr) {
-      return res.status(500).json({ error: signErr.message });
+      // ถ้า sign ไม่ได้ ก็ยังตอบว่าบันทึกสำเร็จ
+      return res.json({ ok: true, saved_to: `${bucket}/${filePath}` });
     }
 
-    return res.status(200).json({
+    return res.json({
       ok: true,
-      saved_to: filePath,
-      download_url: data?.signedUrl
+      saved_to: `${bucket}/${filePath}`,
+      download_url: data?.signedUrl,
     });
   } catch (e) {
-    console.error("[/api/save-csv] exception:", e);
+    console.error("[save-csv] exception:", e);
     return res.status(500).json({ error: String(e?.message || e) });
   }
-}
+};
