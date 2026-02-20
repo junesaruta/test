@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RecGo Swipe Prototype (Login + Save CSV)</title>
+
+  <style>
+:root{
+  --pink:#ec4899;
+  --pink-bg:#fdf2f8;
+
+  --text:#1f2937;
+  --muted:#9ca3af;
+  --line:#f1f5f9;
+
+  --radius-lg:20px;
+  --radius-md:14px;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+  margin:0;
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+  background: var(--pink-bg);
+  color: var(--text);
+  display:grid;
+  place-items:center;
+  min-height:100vh;
+}
+
+.app{
+  width:min(420px, 94vw);
+  background:#fff;
+  border-radius:var(--radius-lg);
+  box-shadow:0 10px 30px rgba(236,72,153,.08);
+  overflow:hidden;
+}
+
+header{
+  padding:20px 20px 16px;
+  border-bottom:1px solid var(--line);
+}
+
+header .title{
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:6px;
+}
+
+header .meta{
+  font-size:12px;
+  color:var(--muted);
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.bar{
+  margin-top:12px;
+  height:6px;
+  background:#f3f4f6;
+  border-radius:999px;
+  overflow:hidden;
+}
+
+.bar > div{
+  height:100%;
+  width:0%;
+  background:var(--pink);
+  transition:.25s ease;
+}
+
+.stage{
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+input{
+  flex:1;
+  padding:10px 12px;
+  border-radius:var(--radius-md);
+  border:1px solid #e5e7eb;
+  outline:none;
+  font-size:14px;
+}
+
+input:focus{
+  border-color:var(--pink);
+  box-shadow:0 0 0 3px rgba(236,72,153,.12);
+}
+
+input[disabled]{
+  background:#fafafa;
+  color:#6b7280;
+}
+
+button{
+  padding:10px 14px;
+  border-radius:var(--radius-md);
+  border:1px solid #e5e7eb;
+  font-weight:600;
+  background:#fff;
+  cursor:pointer;
+  transition:.15s ease;
+}
+
+button:hover{ background:#fafafa; }
+button:disabled{ opacity:.5; cursor:not-allowed; }
+
+.hint{
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.5;
+}
+
+.card-wrap{
+  height:min(520px, 60vh);
+  display:grid;
+  place-items:center;
+  position:relative;
+}
+
+.card{
+  width:min(360px, 88vw);
+  height:100%;
+  background:#fff;
+  border-radius:var(--radius-lg);
+  border:1px solid #f3f4f6;
+  box-shadow:0 8px 20px rgba(0,0,0,.05);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  touch-action:none;
+  user-select:none;
+  position:absolute;
+  will-change:transform;
+}
+
+.img{
+  flex:1;
+  display:grid;
+  place-items:center;
+  background:#fafafa;
+  position:relative;
+}
+
+.img img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  padding:16px;
+}
+
+.badge{
+  position:absolute;
+  top:16px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+  opacity:0;
+}
+
+.badge.like{
+  left:16px;
+  color:#15803d;
+  background:#dcfce7;
+}
+
+.badge.nope{
+  right:16px;
+  color:#b91c1c;
+  background:#fee2e2;
+}
+
+.info{
+  padding:12px 16px;
+  border-top:1px solid #f3f4f6;
+  font-size:13px;
+  display:flex;
+  justify-content:space-between;
+}
+
+.controls{
+  display:flex;
+  gap:10px;
+}
+
+.skip{
+  flex:1;
+  background:#fff;
+  border:1px solid #fecdd3;
+  color:#be123c;
+}
+
+.add{
+  flex:1;
+  background:#fff;
+  border:1px solid #bbf7d0;
+  color:#166534;
+}
+
+.save{
+  background:var(--pink);
+  border:none;
+  color:#fff;
+  width:100%;
+}
+.save:hover{ opacity:.9; }
+
+.secondary{
+  background:#111827;
+  color:#fff;
+  border:none;
+  width:100%;
+}
+
+.toast{
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#111827;
+  color:#fff;
+  padding:8px 14px;
+  border-radius:999px;
+  font-size:12px;
+  opacity:0;
+  transition:.2s ease;
+}
+.toast.show{ opacity:1; }
+
+/* ===== Login page ===== */
+.login{ padding:24px 20px 22px; }
+.login-title{ font-size:18px; font-weight:700; margin:0 0 6px; }
+.login-sub{ font-size:12px; color:var(--muted); margin:0 0 14px; line-height:1.5; }
+.login-card{
+  background:#fff;
+  border:1px solid #f3f4f6;
+  border-radius:var(--radius-lg);
+  padding:16px;
+}
+.login-grid{ display:grid; gap:10px; }
+.login-grid label{ font-size:12px; color:var(--muted); }
+.login-actions{ display:flex; gap:10px; margin-top:12px; }
+.login-actions button{ flex:1; }
+.small{ font-size:12px; color:var(--muted); margin-top:10px; }
+.hidden{ display:none !important; }
+.error{ font-size:12px; color:#be123c; margin-top:10px; display:none; }
+.error.show{ display:block; }
+
+/* ===== Logout button (main) ===== */
+.logout-btn{
+  background:transparent;
+  border:1px solid #fbcfe8;
+  color:#be185d;
+  font-size:12px;
+  padding:6px 10px;
+  border-radius:999px;
+  cursor:pointer;
+  transition:.2s;
+  height:fit-content;
+}
+.logout-btn:hover{ background:#fdf2f8; }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <!-- LOGIN -->
+    <section class="login" id="loginScreen">
+      <h1 class="login-title">RecGo</h1>
+      <p class="login-sub">กรอก username / password เพื่อเข้าใช้งาน</p>
+
+      <div class="login-card">
+        <div class="login-grid">
+          <div>
+            <label>Username (0001–0030)</label>
+            <input id="loginUser" placeholder="เช่น 0001" autocomplete="username" inputmode="numeric" />
+          </div>
+          <div>
+            <label>Password</label>
+            <input id="loginPass" type="password" placeholder="••••" autocomplete="current-password" inputmode="numeric" />
+          </div>
+        </div>
+
+        <div class="error" id="loginError">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
+
+        <div class="login-actions">
+          <button class="save" id="loginBtn" type="button">Log in</button>
+        </div>
+
+        <div class="small">
+          * Prototype: เก็บสถานะไว้ใน browser (localStorage)
+        </div>
+      </div>
+    </section>
+
+    <!-- MAIN APP -->
+    <div id="appMain" class="hidden">
+
+      <header style="display:flex; justify-content:space-between; gap:12px;">
+        <div style="flex:1;">
+          <div class="title">RecGo Swipe</div>
+          <div class="meta">
+            <span id="memberText">Member: —</span>
+            <span id="progressText">Selected: 0 / 40</span>
+            <span id="leftText">Left: —</span>
+          </div>
+          <div class="bar"><div id="barFill"></div></div>
+        </div>
+
+        <!-- ✅ ปุ่มออกจากระบบ -->
+        <button id="logoutBtn" class="logout-btn" type="button">ออกจากระบบ</button>
+      </header>
+
+      <div class="stage">
+        <!-- ✅ member_code ใช้จาก username ที่ login แล้ว -->
+        <div class="row">
+          <input id="memberInput" disabled />
+          <button id="startBtn" style="flex:0 0 auto;" type="button">Start</button>
+        </div>
+
+        <div class="hint">
+          Swipe <b>ขวา</b> = Add, Swipe <b>ซ้าย</b> = Skip. ต้องเลือกครบ <b>40</b> ชิ้น (seq 1..40) <br/>
+          รูปโหลดจาก <code>./assets/{item_id}.jpg</code> และ list จาก <code>./assets/items.json</code>
+        </div>
+
+        <div class="card-wrap" id="cardWrap"></div>
+
+        <div class="controls">
+          <button class="skip" id="skipBtn" type="button">✖ Skip</button>
+          <button class="add" id="addBtn" type="button">✔ Add</button>
+        </div>
+
+        <button class="save" id="saveCsvBtn" disabled type="button">Save as CSV (ต้องครบ 40)</button>
+        <button class="secondary" id="restartBtn" disabled type="button">Shuffle & Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+/***********************
+ * AUTH (Prototype)
+ ***********************/
+const AUTH = {
+  users: {
+    "0001": "4821","0002": "1934","0003": "7502","0004": "6618","0005": "9023",
+    "0006": "1187","0007": "3490","0008": "7742","0009": "2056","0010": "8891",
+    "0011": "4307","0012": "9625","0013": "1408","0014": "5739","0015": "3184",
+    "0016": "7062","0017": "2259","0018": "8193","0019": "6541","0020": "4978",
+    "0021": "3086","0022": "7415","0023": "1269","0024": "9832","0025": "5607",
+    "0026": "2714","0027": "8450","0028": "6923","0029": "4176","0030": "1589"
+  }
+};
+
+/***********************
+ * DOM
+ ***********************/
+const elLoginScreen = document.getElementById("loginScreen");
+const elAppMain = document.getElementById("appMain");
+const elLoginUser = document.getElementById("loginUser");
+const elLoginPass = document.getElementById("loginPass");
+const elLoginBtn = document.getElementById("loginBtn");
+const elLogoutBtn = document.getElementById("logoutBtn");
+const elLoginError = document.getElementById("loginError");
+
+const elWrap = document.getElementById("cardWrap");
+const elMemberInput = document.getElementById("memberInput");
+const elMemberText = document.getElementById("memberText");
+const elProgressText = document.getElementById("progressText");
+const elLeftText = document.getElementById("leftText");
+const elBarFill = document.getElementById("barFill");
+const elStartBtn = document.getElementById("startBtn");
+const elSkipBtn = document.getElementById("skipBtn");
+const elAddBtn = document.getElementById("addBtn");
+const elSaveCsvBtn = document.getElementById("saveCsvBtn");
+const elRestartBtn = document.getElementById("restartBtn");
+const elToast = document.getElementById("toast");
+
+/***********************
+ * CONFIG
+ ***********************/
+const MAX_SELECT = 40;
+const IMAGE_BASE = "./assets";
+const ITEMS_JSON_URL = "./assets/items.json";
+
+/***********************
+ * STATE
+ ***********************/
+let member_code = "";
+let deck = [];
+let idx = 0;
+let selected = [];
+let started = false;
+
+/***********************
+ * UI helpers
+ ***********************/
+function toast(msg){
+  elToast.textContent = msg;
+  elToast.classList.add("show");
+  setTimeout(()=>elToast.classList.remove("show"), 1400);
+}
+
+function setLoggedIn(isIn){
+  elLoginScreen.classList.toggle("hidden", isIn);
+  elAppMain.classList.toggle("hidden", !isIn);
+  elLoginError.classList.remove("show");
+}
+
+/***********************
+ * Login / Logout
+ ***********************/
+function doLogin(){
+  const u = (elLoginUser.value || "").trim();
+  const p = (elLoginPass.value || "").trim();
+
+  if(AUTH.users[u] && AUTH.users[u] === p){
+    member_code = u;
+    elMemberInput.value = member_code;
+
+    localStorage.setItem("recgo_logged_in", "1");
+    localStorage.setItem("recgo_user", u);
+
+    setLoggedIn(true);
+    updateHeader();
+    toast("Logged in ✅");
+  }else{
+    elLoginError.classList.add("show");
+  }
+}
+
+function doLogout(){
+  localStorage.removeItem("recgo_logged_in");
+  localStorage.removeItem("recgo_user");
+
+  // reset state
+  member_code = "";
+  deck = [];
+  idx = 0;
+  selected = [];
+  started = false;
+
+  // clear UI
+  elMemberInput.value = "";
+  elLoginUser.value = "";
+  elLoginPass.value = "";
+  elWrap.innerHTML = "";
+  elLoginError.classList.remove("show");
+
+  updateHeader();
+  setLoggedIn(false);
+  toast("Logged out");
+}
+
+elLoginBtn.addEventListener("click", doLogin);
+elLogoutBtn.addEventListener("click", doLogout);
+elLoginPass.addEventListener("keydown", (e)=>{ if(e.key==="Enter") doLogin(); });
+
+/***********************
+ * Swipe app functions
+ ***********************/
+function imgUrl(itemId){ return `${IMAGE_BASE}/${itemId}.jpg`; }
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function updateHeader(){
+  elMemberText.textContent = `Member: ${member_code || "—"}`;
+  elProgressText.textContent = `Selected: ${selected.length} / ${MAX_SELECT}`;
+  elLeftText.textContent = `Left: ${Math.max(0, deck.length - idx)}`;
+  elBarFill.style.width = `${(selected.length / MAX_SELECT) * 100}%`;
+  elSaveCsvBtn.disabled = selected.length !== MAX_SELECT;
+  elRestartBtn.disabled = !started;
+}
+
+function currentItem(){
+  while (deck[idx] && selected.some(x => x.item_id === deck[idx])) idx += 1;
+  return deck[idx];
+}
+
+function createCard(itemId){
+  const card = document.createElement("div");
+  card.className = "card";
+  card.dataset.itemId = itemId;
+
+  const img = document.createElement("div");
+  img.className = "img";
+
+  const badgeLike = document.createElement("div");
+  badgeLike.className = "badge like";
+  badgeLike.textContent = "ADD";
+
+  const badgeNope = document.createElement("div");
+  badgeNope.className = "badge nope";
+  badgeNope.textContent = "SKIP";
+
+  const imgtag = document.createElement("img");
+  imgtag.alt = itemId;
+  imgtag.src = imgUrl(itemId);
+  imgtag.onerror = () => {
+    imgtag.remove();
+    img.style.background = "#fef2f2";
+    const miss = document.createElement("div");
+    miss.style.padding = "16px";
+    miss.style.color = "#b91c1c";
+    miss.style.fontWeight = "700";
+    miss.style.textAlign = "center";
+    miss.innerHTML = `Missing image<br/><span style="font-weight:700">${itemId}.jpg</span>`;
+    img.appendChild(miss);
+  };
+
+  img.appendChild(imgtag);
+  img.appendChild(badgeLike);
+  img.appendChild(badgeNope);
+
+  const info = document.createElement("div");
+  info.className = "info";
+  info.innerHTML = `<span class="id">item_id: ${itemId}</span><span style="color:#9ca3af;font-size:12px;">Swipe</span>`;
+
+  card.appendChild(img);
+  card.appendChild(info);
+
+  attachSwipe(card, badgeLike, badgeNope);
+  return card;
+}
+
+function render(){
+  elWrap.innerHTML = "";
+  if(!started) return;
+
+  if(selected.length >= MAX_SELECT){
+    elWrap.innerHTML = `
+      <div style="text-align:center;color:#111827;">
+        <div style="font-weight:800;font-size:18px;margin-bottom:6px;">Done</div>
+        <div style="color:#6b7280;font-size:13px;">
+          เลือกครบ 40 แล้ว กด <b>Save as CSV</b> เพื่อบันทึกไฟล์
+        </div>
+      </div>`;
+    updateHeader();
+    return;
+  }
+
+  const currentId = currentItem();
+  if(!currentId){
+    elWrap.innerHTML = `
+      <div style="text-align:center;color:#111827;">
+        <div style="font-weight:800;font-size:18px;margin-bottom:6px;">No more items</div>
+        <div style="color:#6b7280;font-size:13px;">
+          item_id ไม่พอสำหรับเลือก 40 ชิ้น — เพิ่ม item ใน <b>assets/items.json</b>
+        </div>
+      </div>`;
+    updateHeader();
+    return;
+  }
+
+  elWrap.appendChild(createCard(currentId));
+  updateHeader();
+}
+
+function next(){ idx += 1; render(); }
+
+function chooseAdd(){
+  const itemId = currentItem();
+  if(!itemId) return;
+
+  if(selected.some(x => x.item_id === itemId)){ next(); return; }
+
+  selected.push({ seq: selected.length + 1, item_id: itemId });
+  toast(`Added #${selected.length}: ${itemId}`);
+  next();
+}
+
+function chooseSkip(){
+  const itemId = currentItem();
+  if(!itemId) return;
+  toast(`Skipped: ${itemId}`);
+  next();
+}
+
+function attachSwipe(card, badgeLike, badgeNope){
+  let startX=0, startY=0, dx=0, dy=0, dragging=false;
+
+  function onDown(e){
+    if(selected.length >= MAX_SELECT) return;
+    dragging = true;
+    card.setPointerCapture(e.pointerId);
+    startX = e.clientX; startY = e.clientY;
+    dx = 0; dy = 0;
+  }
+
+  function onMove(e){
+    if(!dragging) return;
+    dx = e.clientX - startX;
+    dy = e.clientY - startY;
+
+    const rot = Math.max(-12, Math.min(12, dx / 18));
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+
+    const a = Math.min(1, Math.abs(dx) / 120);
+    if(dx > 0){ badgeLike.style.opacity = a; badgeNope.style.opacity = 0; }
+    else      { badgeNope.style.opacity = a; badgeLike.style.opacity = 0; }
+  }
+
+  function reset(){
+    card.style.transition = "transform .18s ease";
+    card.style.transform = "translate(0px,0px) rotate(0deg)";
+    badgeLike.style.opacity = 0;
+    badgeNope.style.opacity = 0;
+    setTimeout(()=> card.style.transition = "", 180);
+  }
+
+  function fling(dir){
+    const offX = dir * 520;
+    card.style.transition = "transform .22s ease";
+    card.style.transform = `translate(${offX}px, ${dy}px) rotate(${dir*14}deg)`;
+    setTimeout(()=> (dir > 0 ? chooseAdd() : chooseSkip()), 180);
+  }
+
+  function onUp(){
+    if(!dragging) return;
+    dragging = false;
+    const threshold = 110;
+    if(dx > threshold) fling(+1);
+    else if(dx < -threshold) fling(-1);
+    else reset();
+  }
+
+  card.addEventListener("pointerdown", onDown);
+  card.addEventListener("pointermove", onMove);
+  card.addEventListener("pointerup", onUp);
+  card.addEventListener("pointercancel", onUp);
+}
+
+async function downloadCSV(member_code, selected){
+  const res = await fetch("/save-csv", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ member_code, selected })
+  });
+
+  const data = await res.json().catch(()=> ({}));
+  if(!res.ok){
+    console.error(data);
+    toast(`Save CSV ไม่สำเร็จ (${res.status})`);
+    return;
+  }
+  toast(`Saved: ${data.saved_to || "assets/..."}`);
+}
+
+async function loadItemIds(){
+  const res = await fetch(ITEMS_JSON_URL, { cache: "no-store" });
+  if(!res.ok) throw new Error("Cannot load assets/items.json");
+  const ids = await res.json();
+  return (Array.isArray(ids) ? ids : []).map(String).map(x=>x.trim()).filter(Boolean);
+}
+
+async function startSession(){
+  if(!member_code){
+    toast("กรุณา Login ก่อน");
+    return;
+  }
+
+  let ITEM_IDS;
+  try{
+    ITEM_IDS = await loadItemIds();
+  }catch(e){
+    console.error(e);
+    toast("โหลด items.json ไม่ได้ (ต้องเปิดผ่าน server)");
+    return;
+  }
+
+  const uniqIds = [...new Set(ITEM_IDS)];
+  if(uniqIds.length < MAX_SELECT){
+    toast(`items.json มีแค่ ${uniqIds.length} ชิ้น (< 40)`);
+    return;
+  }
+
+  deck = shuffle(uniqIds);
+  idx = 0;
+  selected = [];
+  started = true;
+
+  toast("Started (randomized)");
+  render();
+}
+
+elStartBtn.addEventListener("click", startSession);
+
+elSkipBtn.addEventListener("click", () => {
+  if(!started) return toast("กด Start ก่อน");
+  if(selected.length >= MAX_SELECT) return;
+  chooseSkip();
+});
+
+elAddBtn.addEventListener("click", () => {
+  if(!started) return toast("กด Start ก่อน");
+  if(selected.length >= MAX_SELECT) return;
+  chooseAdd();
+});
+
+elSaveCsvBtn.addEventListener("click", () => {
+  if(selected.length !== MAX_SELECT) return toast("ต้องเลือกให้ครบ 40 ก่อน");
+  downloadCSV(member_code, selected);
+});
+
+elRestartBtn.addEventListener("click", async () => {
+  if(!started) return;
+  const ITEM_IDS = await loadItemIds();
+  const uniqIds = [...new Set(ITEM_IDS)];
+  deck = shuffle(uniqIds);
+  idx = 0;
+  selected = [];
+  toast("Shuffled & restarted");
+  render();
+});
+
+/***********************
+ * Init restore session
+ ***********************/
+(function init(){
+  const ok = localStorage.getItem("recgo_logged_in") === "1";
+  const savedUser = localStorage.getItem("recgo_user") || "";
+
+  if(ok && savedUser && AUTH.users[savedUser]){
+    member_code = savedUser;
+    elMemberInput.value = member_code;
+    setLoggedIn(true);
+  }else{
+    setLoggedIn(false);
+  }
+  updateHeader();
+})();
+  </script>
+</body>
+</html>
