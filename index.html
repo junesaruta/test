@@ -751,6 +751,39 @@ elRestartBtn.addEventListener("click", async () => {
   }
   updateHeader();
 })();
+
+async function downloadCSV(member_code, selected){
+  // ✅ Vercel API route (แทน /save-csv ของ Express local)
+  const res = await fetch("/api/save-csv", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ member_code, selected })
+  });
+
+  const data = await res.json().catch(()=> ({}));
+
+  if(!res.ok){
+    console.error("[save-csv] failed:", data);
+    toast(`Save CSV ไม่สำเร็จ (${res.status})`);
+    // ✅ บอกเหตุผลแบบสั้น ๆ เผื่อ debug
+    if (data?.detail || data?.error) {
+      setTimeout(() => toast(String(data.detail || data.error).slice(0, 60)), 1400);
+    }
+    return;
+  }
+
+  // data = { ok:true, saved_to:"recgo/xxxx.csv", download_url:"https://..." }
+  toast(`Saved ✅`);
+
+  // ✅ ถ้าเป็น private bucket จะได้ signed url → เปิดให้โหลด
+  if (data.download_url) {
+    window.open(data.download_url, "_blank");
+    return;
+  }
+
+  // ✅ ถ้าไม่มีลิงก์ (เช่น bucket public / หรือ sign ไม่ได้)
+  toast(`Saved: ${data.saved_to || "csv/recgo/..."}`);
+}
   </script>
 </body>
 </html>
