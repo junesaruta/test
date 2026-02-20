@@ -1,7 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
 
 module.exports = async (req, res) => {
-  // CORS (เผื่อเรียกจากหน้าเว็บ)
+  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -10,7 +10,6 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // บางที body อาจเป็น string
     const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
     const { member_code, selected } = body;
 
@@ -28,7 +27,7 @@ module.exports = async (req, res) => {
       auth: { persistSession: false },
     });
 
-    // ---- Build CSV ----
+    // CSV
     const header = ["member_code", "seq", "item_id"];
     const rows = selected.map((x) => [member_code, x.seq, x.item_id]);
 
@@ -36,28 +35,24 @@ module.exports = async (req, res) => {
       .map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
       .join("\n");
 
-    const bucket = "csv"; // ต้องมี bucket นี้ใน Storage
+    const bucket = "csv";         // ต้องมี bucket นี้ใน Supabase Storage
     const filePath = `recgo/${member_code}.csv`;
-
-    // ✅ อัปโหลดเป็น Buffer (ชัวร์สุดบน Node)
-    const fileBody = Buffer.from(csv, "utf8");
 
     const { error: upErr } = await supabase.storage
       .from(bucket)
-      .upload(filePath, fileBody, {
+      .upload(filePath, Buffer.from(csv, "utf8"), {
         contentType: "text/csv; charset=utf-8",
         upsert: true,
       });
 
     if (upErr) return res.status(500).json({ error: upErr.message });
 
-    // ถ้า bucket เป็น private → สร้าง signed url
+    // signed url (ถ้า private)
     const { data, error: signErr } = await supabase.storage
       .from(bucket)
       .createSignedUrl(filePath, 60 * 60);
 
     if (signErr) {
-      // ถ้า sign ไม่ได้ ก็ยังตอบว่าบันทึกสำเร็จ
       return res.json({ ok: true, saved_to: `${bucket}/${filePath}` });
     }
 
@@ -67,7 +62,7 @@ module.exports = async (req, res) => {
       download_url: data?.signedUrl,
     });
   } catch (e) {
-    console.error("[save-csv] exception:", e);
+    console.error("[api/save-csv] error:", e);
     return res.status(500).json({ error: String(e?.message || e) });
   }
 };
