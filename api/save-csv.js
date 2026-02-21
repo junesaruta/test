@@ -12,25 +12,32 @@ export default async function handler(req, res) {
     }
 
     const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY; 
+    const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!SUPABASE_URL) return res.status(500).json({ error: "SUPABASE_URL is missing" });
     if (!SERVICE_ROLE) return res.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY is missing" });
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+    // server-only client (service role)
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
+      auth: { persistSession: false },
+    });
 
     // ---- CSV ----
     const header = ["member_code", "seq", "item_id"];
-    const rows = selected.map(x => [member_code, x.seq, x.item_id]);
+    const rows = selected.map((x) => [member_code, x.seq, x.item_id]);
 
-    const csv = [header, ...rows].map(r => r.join(",")).join("\n");
+    // ใส่ \r\n กัน Excel งอแง
+    const csv = [header, ...rows].map((r) => r.join(",")).join("\r\n");
+
     const filePath = `recgo/${member_code}.csv`;
+    const csvBuffer = Buffer.from(csv, "utf8");
 
     const { error: upErr } = await supabase.storage
-      .from("csv")
-      .upload(filePath, new Blob([csv], { type: "text/csv" }), {
+      .from("csv") // bucket name
+      .upload(filePath, csvBuffer, {
         upsert: true,
-        contentType: "text/csv",
+        contentType: "text/csv; charset=utf-8",
+        cacheControl: "3600",
       });
 
     if (upErr) return res.status(500).json({ error: upErr.message });
